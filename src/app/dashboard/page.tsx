@@ -1,6 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+function splitIntoSentences(text: string, expectedCount: number): string[] {
+  const raw = text
+    .split(/(?<=[.!?])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (expectedCount && raw.length > expectedCount) {
+    return raw.slice(0, expectedCount);
+  }
+
+  return raw;
+}
+
+function downloadTextFile(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function DashboardPage() {
   const [idea, setIdea] = useState("");
@@ -8,11 +31,23 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [script, setScript] = useState<string | null>(null);
+  const [scriptParts, setScriptParts] = useState<string[]>([]);
+
+  useEffect(() => {
+    const savedDefaultAmount = window.localStorage.getItem("defaultSentenceAmount");
+    if (savedDefaultAmount) {
+      const parsed = Number(savedDefaultAmount);
+      if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 200) {
+        setAmount(parsed);
+      }
+    }
+  }, []);
 
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setScript(null);
+    setScriptParts([]);
     setLoading(true);
 
     try {
@@ -26,7 +61,20 @@ export default function DashboardPage() {
       if (!res.ok || !data.ok) {
         setError(data.message || "Generation failed. Please try again.");
       } else {
-        setScript(data.script || "");
+        const scriptText: string = data.script || "";
+        setScript(scriptText);
+        setScriptParts(splitIntoSentences(scriptText, amount));
+
+        // Best-effort save to "my scripts" history (ignores errors)
+        try {
+          await fetch("/api/myscripts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idea, amount, content: scriptText }),
+          });
+        } catch {
+          // ignore save errors for now
+        }
       }
     } catch (err) {
       setError("Something went wrong while talking to Gemini.");
@@ -44,6 +92,12 @@ export default function DashboardPage() {
         <nav className="flex items-center gap-4 text-xs text-slate-300">
           <a href="/dashboard" className="font-medium text-emerald-300">
             Dashboard
+          </a>
+          <a href="/my-scripts" className="hover:text-white">
+            My scripts
+          </a>
+          <a href="/settings" className="hover:text-white">
+            Settings
           </a>
           <a href="/login" className="hover:text-white">
             Log in
@@ -67,12 +121,18 @@ export default function DashboardPage() {
             <a href="/dashboard" className="rounded-lg bg-slate-800 px-3 py-2 text-emerald-300">
               Create script
             </a>
-            <button className="rounded-lg px-3 py-2 text-left text-slate-200 hover:bg-slate-800/80">
-              My scripts (coming soon)
-            </button>
-            <button className="rounded-lg px-3 py-2 text-left text-slate-200 hover:bg-slate-800/80">
-              Settings (coming soon)
-            </button>
+            <a
+              href="/my-scripts"
+              className="rounded-lg px-3 py-2 text-left text-slate-200 hover:bg-slate-800/80"
+            >
+              My scripts
+            </a>
+            <a
+              href="/settings"
+              className="rounded-lg px-3 py-2 text-left text-slate-200 hover:bg-slate-800/80"
+            >
+              Settings
+            </a>
           </nav>
           <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-xs text-slate-300">
             Use the <span className="font-medium text-emerald-300">Create script</span> section to
@@ -171,11 +231,54 @@ export default function DashboardPage() {
             </form>
 
             {script && (
-              <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs leading-relaxed text-slate-100">
-                <div className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Generated script
+              <div className="mt-5 space-y-4">
+                <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs leading-relaxed text-slate-100">
+                  <div className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    Generated script
+                  </div>
+                  <pre className="whitespace-pre-wrap text-xs text-slate-100">{script}</pre>
                 </div>
-                <pre className="whitespace-pre-wrap text-xs text-slate-100">{script}</pre>
+
+                <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-100">
+                  <div className="mb-2 flex items-center justify-between text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                    <span>Download script files</span>
+                    <span className="text-slate-500">{scriptParts.length} files</span>
+                  </div>
+
+                  <div className="mb-3 flex flex-wrap gap-2 text-[0.7rem]">
+                    <button
+                      type="button"
+                      onClick={() => downloadTextFile("full-script.txt", script)}
+                      className="rounded-full bg-emerald-400 px-3 py-1 font-medium text-slate-950 shadow-sm hover:bg-emerald-300"
+                    >
+                      Download full script (.txt)
+                    </button>
+                  </div>
+
+                  {scriptParts.length > 0 && (
+                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-2">
+                      {scriptParts.map((part, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between gap-2 rounded-md px-2 py-1 text-[0.7rem] hover:bg-slate-900"
+                        >
+                          <span className="line-clamp-1 text-slate-200">
+                            {index + 1}. {part}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              downloadTextFile(`script-part-${index + 1}.txt`, part)
+                            }
+                            className="whitespace-nowrap rounded-full border border-slate-700 px-2 py-0.5 text-[0.65rem] text-slate-200 hover:border-slate-500 hover:bg-slate-900"
+                          >
+                            Download
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </section>
