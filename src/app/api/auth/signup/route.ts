@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           errors: parseResult.error.flatten().fieldErrors,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
           ok: false,
           message: "A user with this email already exists.",
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -51,7 +51,10 @@ export async function POST(req: NextRequest) {
       passwordHash,
     });
 
-    const token = signAuthToken({ userId: user._id.toString(), email: user.email });
+    const token = signAuthToken({
+      userId: user._id.toString(),
+      email: user.email,
+    });
 
     const res = NextResponse.json(
       {
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest) {
         message: "Account created successfully.",
         token,
       },
-      { status: 201 }
+      { status: 201 },
     );
 
     res.cookies.set("token", token, {
@@ -77,7 +80,7 @@ export async function POST(req: NextRequest) {
         ok: false,
         message: "Something went wrong. Please try again.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
