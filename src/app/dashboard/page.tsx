@@ -1,8 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import JSZip from "jszip";
+import AppShell from "@/components/AppShell";
 
-function splitIntoSentences(text: string, expectedCount: number): string[] {
+function splitIntoScenes(text: string, expectedCount: number): string[] {
+  // Try to split on "Scene N:" markers first (matches the prompt format)
+  const scenePattern = /Scene\s+\d+\s*:/gi;
+  const markers = [...text.matchAll(scenePattern)];
+
+  if (markers.length >= 2) {
+    const parts: string[] = [];
+    for (let i = 0; i < markers.length; i++) {
+      const start = markers[i].index! + markers[i][0].length;
+      const end = i + 1 < markers.length ? markers[i + 1].index! : text.length;
+      const scene = text.slice(start, end).trim();
+      if (scene) parts.push(scene);
+    }
+    if (expectedCount && parts.length > expectedCount) {
+      return parts.slice(0, expectedCount);
+    }
+    return parts;
+  }
+
+  // Fallback: split on double-newlines (paragraphs)
+  const paragraphs = text
+    .split(/\n\s*\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length >= 2) {
+    if (expectedCount && paragraphs.length > expectedCount) {
+      return paragraphs.slice(0, expectedCount);
+    }
+    return paragraphs;
+  }
+
+  // Last resort: split on sentence boundaries
   const raw = text
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
@@ -11,7 +45,6 @@ function splitIntoSentences(text: string, expectedCount: number): string[] {
   if (expectedCount && raw.length > expectedCount) {
     return raw.slice(0, expectedCount);
   }
-
   return raw;
 }
 
@@ -25,6 +58,22 @@ function downloadTextFile(filename: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
+async function downloadAllPartsAsZip(parts: string[]) {
+  if (!parts.length) return;
+  const zip = new JSZip();
+  const folder = zip.folder("script");
+  parts.forEach((part, index) => {
+    folder?.file(`script-part-${index + 1}.txt`, part);
+  });
+  const blob = await zip.generateAsync({ type: "blob" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "script-parts.zip";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function DashboardPage() {
   const [idea, setIdea] = useState("");
   const [amount, setAmount] = useState(40);
@@ -34,7 +83,7 @@ export default function DashboardPage() {
   const [scriptParts, setScriptParts] = useState<string[]>([]);
 
   useEffect(() => {
-    const savedDefaultAmount = window.localStorage.getItem("defaultSentenceAmount");
+    const savedDefaultAmount = localStorage.getItem("defaultSentenceAmount");
     if (savedDefaultAmount) {
       const parsed = Number(savedDefaultAmount);
       if (!Number.isNaN(parsed) && parsed >= 1 && parsed <= 200) {
@@ -63,9 +112,8 @@ export default function DashboardPage() {
       } else {
         const scriptText: string = data.script || "";
         setScript(scriptText);
-        setScriptParts(splitIntoSentences(scriptText, amount));
+        setScriptParts(splitIntoScenes(scriptText, amount));
 
-        // Best-effort save to "my scripts" history (ignores errors)
         try {
           await fetch("/api/myscripts", {
             method: "POST",
@@ -73,7 +121,7 @@ export default function DashboardPage() {
             body: JSON.stringify({ idea, amount, content: scriptText }),
           });
         } catch {
-          // ignore save errors for now
+          // ignore save errors
         }
       }
     } catch (err) {
@@ -84,125 +132,55 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4 md:px-10">
-        <a href="/" className="text-sm font-semibold tracking-tight">
-          Gemini Script Studio
-        </a>
-        <nav className="flex items-center gap-4 text-xs text-slate-300">
-          <a href="/dashboard" className="font-medium text-emerald-300">
-            Dashboard
-          </a>
-          <a href="/my-scripts" className="hover:text-white">
-            My scripts
-          </a>
-          <a href="/settings" className="hover:text-white">
-            Settings
-          </a>
-          <a href="/login" className="hover:text-white">
-            Log in
-          </a>
-          <a
-            href="/signup"
-            className="rounded-full bg-slate-50 px-4 py-2 text-[0.7rem] font-medium text-slate-900 shadow-sm hover:bg-white"
-          >
-            Sign up
-          </a>
-        </nav>
-      </header>
+    <AppShell>
+      <div className="mx-auto max-w-4xl space-y-8 font-sans">
+        {/* Page header */}
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
+            Create script
+          </h1>
+          <p className="mt-1 text-base text-slate-400 ">
+            Describe your idea, pick a scene count, and generate a
+            production-ready video script.
+          </p>
+        </div>
 
-      <main className="mx-auto flex max-w-6xl gap-8 px-6 py-8 md:px-10 md:py-12">
-        {/* Sidebar */}
-        <aside className="hidden w-60 flex-shrink-0 flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm text-slate-200 md:flex">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-            Workspace
-          </h2>
-          <nav className="flex flex-col gap-1 text-sm">
-            <a href="/dashboard" className="rounded-lg bg-slate-800 px-3 py-2 text-emerald-300">
-              Create script
-            </a>
-            <a
-              href="/my-scripts"
-              className="rounded-lg px-3 py-2 text-left text-slate-200 hover:bg-slate-800/80"
-            >
-              My scripts
-            </a>
-            <a
-              href="/settings"
-              className="rounded-lg px-3 py-2 text-left text-slate-200 hover:bg-slate-800/80"
-            >
-              Settings
-            </a>
-          </nav>
-          <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950/80 p-3 text-xs text-slate-300">
-            Use the <span className="font-medium text-emerald-300">Create script</span> section to
-            send your idea and desired sentence amount to the Gemini generator.
-          </div>
-        </aside>
-
-        {/* Main content */}
-        <section className="flex-1 space-y-8">
-          <section>
-            <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-              Dashboard
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-300">
-              This is your starting point for turning tiny ideas into structured, Gemini-ready
-              scripts between 1 and 200 sentences. Use the Create script panel below to send
-              prompts to the Gemini API.
-            </p>
-          </section>
-
-          <section className="grid gap-6 md:grid-cols-3">
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-sm font-semibold">Quick start</h2>
-              <p className="mt-2 text-xs text-slate-300">
-                Start from a short description and choose how long your script should be. We
-                will send a clear instruction to Gemini and return a ready-to-use script.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-sm font-semibold">My scripts (planned)</h2>
-              <p className="mt-2 text-xs text-slate-300">
-                Later you&apos;ll be able to browse and re-run scripts you&apos;ve generated before.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-sm font-semibold">Export & download</h2>
-              <p className="mt-2 text-xs text-slate-300">
-                Download prompts as text files ready to drop into Gemini or any other AI system.
-              </p>
-            </div>
-          </section>
-
-          <section className="mt-4 rounded-2xl border border-dashed border-slate-800 bg-slate-900/40 p-6 text-sm text-slate-300">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Create script (Gemini prompt builder)
+        {/* ── Script builder card ── */}
+        <div className="rounded-xl border border-slate-800/70 bg-slate-900/40">
+          <div className="border-b border-slate-800/50 px-6 py-4">
+            <h2 className="text-sm font-semibold text-slate-200">
+              Script builder
             </h2>
-            <p className="mt-2 text-xs">
-              Type a short idea, choose how many sentences you want (1200), and send it to the
-              Gemini API. This is a simple test UI.
-            </p>
+          </div>
 
-            <form onSubmit={handleGenerate} className="mt-4 space-y-4 text-sm">
-              <div>
-                <label className="block text-xs font-medium text-slate-200" htmlFor="idea">
-                  Idea
-                </label>
-                <textarea
-                  id="idea"
-                  value={idea}
-                  onChange={(e) => setIdea(e.target.value)}
-                  rows={3}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-500"
-                  placeholder="Short YouTube video about focusing while studying"
-                  required
-                />
-              </div>
+          <form onSubmit={handleGenerate} className="space-y-5 px-6 py-5">
+            {/* Idea */}
+            <div className="space-y-1.5">
+              <label
+                className="text-xs font-medium text-slate-300"
+                htmlFor="idea"
+              >
+                Your idea
+              </label>
+              <textarea
+                id="idea"
+                value={idea}
+                onChange={(e) => setIdea(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-slate-700/60 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-600 outline-none transition focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30"
+                placeholder="e.g. Short YouTube video about 5 tips to stay focused while studying"
+                required
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-200" htmlFor="amount">
-                  Number of sentences (1200)
+            {/* Scene count row */}
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-1.5">
+                <label
+                  className="text-xs font-medium text-slate-300"
+                  htmlFor="amount"
+                >
+                  Scenes
                 </label>
                 <input
                   id="amount"
@@ -211,79 +189,114 @@ export default function DashboardPage() {
                   max={200}
                   value={amount}
                   onChange={(e) => setAmount(Number(e.target.value))}
-                  className="mt-1 w-28 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-500"
+                  className="w-24 rounded-lg border border-slate-700/60 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30"
                 />
               </div>
+              <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-950/50 px-3 py-1 text-[0.7rem] text-slate-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />~
+                {Math.max(1, Math.round((amount * 6) / 60))} min video
+              </span>
+            </div>
 
-              {error && (
-                <p className="text-xs text-red-400" role="alert">
-                  {error}
-                </p>
-              )}
+            {/* Error */}
+            {error && (
+              <div
+                className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-2.5 text-xs text-red-300"
+                role="alert"
+              >
+                {error}
+              </div>
+            )}
 
+            {/* Submit */}
+            <div className="flex items-center gap-3 pt-1">
               <button
                 type="submit"
                 disabled={loading}
-                className="rounded-full bg-emerald-400 px-5 py-2 text-xs font-medium text-slate-950 shadow-md shadow-emerald-500/30 hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Generating..." : "Generate script with Gemini"}
+                {loading && (
+                  <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                )}
+                {loading ? "Generating…" : "Generate script"}
               </button>
-            </form>
+              {loading && (
+                <span className="text-xs text-slate-500">
+                  This may take a few seconds
+                </span>
+              )}
+            </div>
+          </form>
+        </div>
 
-            {script && (
-              <div className="mt-5 space-y-4">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs leading-relaxed text-slate-100">
-                  <div className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    Generated script
-                  </div>
-                  <pre className="whitespace-pre-wrap text-xs text-slate-100">{script}</pre>
-                </div>
-
-                <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-100">
-                  <div className="mb-2 flex items-center justify-between text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    <span>Download script files</span>
-                    <span className="text-slate-500">{scriptParts.length} files</span>
-                  </div>
-
-                  <div className="mb-3 flex flex-wrap gap-2 text-[0.7rem]">
-                    <button
-                      type="button"
-                      onClick={() => downloadTextFile("full-script.txt", script)}
-                      className="rounded-full bg-emerald-400 px-3 py-1 font-medium text-slate-950 shadow-sm hover:bg-emerald-300"
-                    >
-                      Download full script (.txt)
-                    </button>
-                  </div>
-
-                  {scriptParts.length > 0 && (
-                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-slate-800 bg-slate-950/70 p-2">
-                      {scriptParts.map((part, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between gap-2 rounded-md px-2 py-1 text-[0.7rem] hover:bg-slate-900"
-                        >
-                          <span className="line-clamp-1 text-slate-200">
-                            {index + 1}. {part}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              downloadTextFile(`script-part-${index + 1}.txt`, part)
-                            }
-                            className="whitespace-nowrap rounded-full border border-slate-700 px-2 py-0.5 text-[0.65rem] text-slate-200 hover:border-slate-500 hover:bg-slate-900"
-                          >
-                            Download
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+        {/* ── Generated output ── */}
+        {script && (
+          <div className="space-y-5">
+            {/* Full script */}
+            <div className="rounded-xl border border-slate-800/70 bg-slate-900/40">
+              <div className="flex items-center justify-between border-b border-slate-800/50 px-6 py-4">
+                <h2 className="text-sm font-semibold text-slate-200">
+                  Generated script
+                </h2>
+                <span className="rounded-full bg-emerald-400/10 px-2.5 py-0.5 text-[0.65rem] font-medium text-emerald-400">
+                  {scriptParts.length} scenes
+                </span>
               </div>
-            )}
-          </section>
-        </section>
-      </main>
-    </div>
+              <div className="px-6 py-5">
+                <pre className="max-h-122 overflow-y-auto whitespace-pre-wrap text-[0.8rem] leading-relaxed text-slate-300">
+                  {script}
+                </pre>
+              </div>
+            </div>
+
+            {/* Scene downloads */}
+            <div className="rounded-xl border border-slate-800/70 bg-slate-900/40">
+              <div className="flex items-center justify-between border-b border-slate-800/50 px-6 py-4">
+                <h2 className="text-sm font-semibold text-slate-200">
+                  Scene files
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => downloadAllPartsAsZip(scriptParts)}
+                  disabled={scriptParts.length === 0}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-[0.7rem] font-medium text-slate-200 transition hover:bg-slate-700 disabled:opacity-50"
+                >
+                  Download all (.zip)
+                </button>
+              </div>
+
+              {scriptParts.length > 0 && (
+                <div className="max-h-72 divide-y divide-slate-800/40 overflow-y-auto">
+                  {scriptParts.map((part, index) => (
+                    <div
+                      key={index}
+                      className="group flex items-start justify-between gap-4 px-6 py-3 transition hover:bg-slate-800/20"
+                    >
+                      <div className="flex min-w-0 gap-3">
+                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-800 text-[0.6rem] font-semibold text-slate-400">
+                          {index + 1}
+                        </span>
+                        <p className="line-clamp-2 text-xs leading-relaxed text-slate-400">
+                          {part}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          downloadTextFile(`scene-${index + 1}.txt`, part)
+                        }
+                        className="shrink-0 rounded-md border border-slate-700/50 px-2.5 py-1 text-[0.65rem] font-medium text-slate-400 opacity-0 transition group-hover:opacity-100 hover:border-slate-600 hover:text-slate-200"
+                      >
+                        Download
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </AppShell>
   );
 }
