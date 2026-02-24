@@ -6,8 +6,8 @@ const bodySchema = z.object({
   amount: z
     .number()
     .int()
-    .min(1, "Amount must be at least 1 sentence")
-    .max(200, "Amount cannot be more than 200 sentences"),
+    .min(1, "Amount must be at least 1 scene")
+    .max(200, "Amount cannot be more than 200 scenes"),
 });
 
 export const runtime = "nodejs";
@@ -41,9 +41,21 @@ export async function POST(req: NextRequest) {
     const { idea, amount } = parsed.data;
 
     const systemText =
-      `You are an AI script writer. The user will give you a short idea, and you must ` +
-      `turn it into a clear script of EXACTLY ${amount} sentences (where amount is between 1 and 200). ` +
-      `Each sentence should be easy to read and useful for video, narration, or article content.`;
+      `You are an expert AI video-script writer. The user will give you a short idea and you must ` +
+      `produce a professional, production-ready video script with EXACTLY ${amount} scenes.\n\n` +
+      `RULES YOU MUST FOLLOW:\n` +
+      `1. Output EXACTLY ${amount} scenes — no more, no less.\n` +
+      `2. Label every scene as "Scene 1:", "Scene 2:", etc., each on its own line.\n` +
+      `3. Each scene MUST contain 3–5 sentences (40–80 words minimum) including:\n` +
+      `   - A narrator line (what is spoken aloud in the video).\n` +
+      `   - A visual note in brackets, e.g. [Show a close-up of hands typing on a keyboard].\n` +
+      `4. Scenes must flow logically from one to the next. Use transitions, callbacks, and a consistent tone ` +
+      `so the script feels like ONE cohesive video, not a random list.\n` +
+      `5. The script must have a clear structure: hook/intro → main body → conclusion/call-to-action.\n` +
+      `6. Write in a conversational, engaging tone suitable for a YouTube or TikTok audience.\n` +
+      `7. Do NOT add any extra commentary, markdown formatting, or text outside of the scenes.\n` +
+      `8. The total script should be long enough for roughly ${Math.max(1, Math.round((amount * 6) / 60))} minutes of video ` +
+      `(assume ~6 seconds per scene on average).`;
 
     const payload = {
       contents: [
