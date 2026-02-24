@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AppShell from "@/components/AppShell";
 
 export default function SettingsPage() {
   const [defaultAmount, setDefaultAmount] = useState(40);
@@ -41,52 +42,26 @@ export default function SettingsPage() {
   }, [compactLayout]);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4 md:px-10">
-        <a href="/" className="text-sm font-semibold tracking-tight">
-          Gemini Script Studio
-        </a>
-        <nav className="flex items-center gap-4 text-xs text-slate-300">
-          <a href="/dashboard" className="hover:text-white">
-            Dashboard
-          </a>
-          <a href="/my-scripts" className="hover:text-white">
-            My scripts
-          </a>
-          <a href="/settings" className="font-medium text-emerald-300">
-            Settings
-          </a>
-          <a href="/login" className="hover:text-white">
-            Log in
-          </a>
-          <a
-            href="/signup"
-            className="rounded-full bg-slate-50 px-4 py-2 text-[0.7rem] font-medium text-slate-900 shadow-sm hover:bg-white"
-          >
-            Sign up
-          </a>
-        </nav>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-6 py-8 md:px-10 md:py-12">
-        <section className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">Settings</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-300">
-            Configure how Gemini Script Studio behaves for you. These settings are stored in your
-            browser and affect the dashboard experience.
+    <AppShell>
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Settings</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Preferences are stored in your browser and apply to the dashboard.
           </p>
-        </section>
+        </div>
 
-        <section className="space-y-6 rounded-2xl border border-slate-800 bg-slate-900/60 p-6 text-sm text-slate-200">
-          <div className="space-y-2">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Script defaults
-            </h2>
-            <label className="flex items-center gap-3 text-sm" htmlFor="default-amount">
+        {/* Script defaults */}
+        <div className="rounded-xl border border-slate-800/70 bg-slate-900/40">
+          <div className="border-b border-slate-800/50 px-6 py-4">
+            <h2 className="text-sm font-semibold text-slate-200">Script defaults</h2>
+          </div>
+          <div className="px-6 py-5">
+            <label className="flex items-center gap-4 text-sm" htmlFor="default-amount">
               <div className="flex-1">
-                <div className="font-medium text-slate-100">Default number of sentences</div>
-                <p className="text-xs text-slate-400">
-                  This value will be used as the default on the dashboard (1200).
+                <div className="font-medium text-slate-200">Default number of scenes</div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Pre-filled on the dashboard (1–200).
                 </p>
               </div>
               <input
@@ -96,47 +71,50 @@ export default function SettingsPage() {
                 max={200}
                 value={defaultAmount}
                 onChange={(e) => setDefaultAmount(Number(e.target.value) || 1)}
-                className="w-20 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-sm outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-500"
+                className="w-20 rounded-lg border border-slate-700/60 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/30"
               />
             </label>
           </div>
+        </div>
 
-          <div className="space-y-2">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-              Display
-            </h2>
-            <label className="flex items-center justify-between gap-4 text-sm">
+        {/* Display */}
+        <div className="rounded-xl border border-slate-800/70 bg-slate-900/40">
+          <div className="border-b border-slate-800/50 px-6 py-4">
+            <h2 className="text-sm font-semibold text-slate-200">Display</h2>
+          </div>
+          <div className="divide-y divide-slate-800/40">
+            <label className="flex cursor-pointer items-center justify-between gap-4 px-6 py-4 text-sm transition hover:bg-slate-800/20">
               <div>
-                <div className="font-medium text-slate-100">Show sentence numbers</div>
-                <p className="text-xs text-slate-400">
-                  When enabled, the dashboard will show sentence numbers next to each generated line.
+                <div className="font-medium text-slate-200">Show scene numbers</div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Display scene numbers next to each generated line.
                 </p>
               </div>
               <input
                 type="checkbox"
                 checked={showSentenceNumbers}
                 onChange={(e) => setShowSentenceNumbers(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-400"
+                className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-400 accent-emerald-500"
               />
             </label>
 
-            <label className="mt-3 flex items-center justify-between gap-4 text-sm">
+            <label className="flex cursor-pointer items-center justify-between gap-4 px-6 py-4 text-sm transition hover:bg-slate-800/20">
               <div>
-                <div className="font-medium text-slate-100">Compact dashboard layout</div>
-                <p className="text-xs text-slate-400">
-                  Use a tighter layout on the dashboard (useful on smaller screens).
+                <div className="font-medium text-slate-200">Compact layout</div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  Use a tighter layout on the dashboard.
                 </p>
               </div>
               <input
                 type="checkbox"
                 checked={compactLayout}
                 onChange={(e) => setCompactLayout(e.target.checked)}
-                className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-400"
+                className="h-4 w-4 rounded border-slate-700 bg-slate-900 text-emerald-400 accent-emerald-500"
               />
             </label>
           </div>
-        </section>
-      </main>
-    </div>
+        </div>
+      </div>
+    </AppShell>
   );
 }
