@@ -36,7 +36,7 @@ const ScriptSchema = new Schema<IScript>(
   },
   {
     collection: "scripts",
-  }
+  },
 );
 
 export const Script: Model<IScript> =
