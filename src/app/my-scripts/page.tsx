@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import AppShell from "@/components/AppShell";
 
 interface ScriptItem {
   id: string;
@@ -46,99 +47,91 @@ export default function MyScriptsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50">
-      <header className="flex items-center justify-between border-b border-slate-800 px-6 py-4 md:px-10">
-        <a href="/" className="text-sm font-semibold tracking-tight">
-          Gemini Script Studio
-        </a>
-        <nav className="flex items-center gap-4 text-xs text-slate-300">
-          <a href="/dashboard" className="hover:text-white">
-            Dashboard
-          </a>
-          <a href="/my-scripts" className="font-medium text-emerald-300">
-            My scripts
-          </a>
-          <a href="/settings" className="hover:text-white">
-            Settings
-          </a>
-          <a href="/login" className="hover:text-white">
-            Log in
-          </a>
-          <a
-            href="/signup"
-            className="rounded-full bg-slate-50 px-4 py-2 text-[0.7rem] font-medium text-slate-900 shadow-sm hover:bg-white"
-          >
-            Sign up
-          </a>
-        </nav>
-      </header>
-
-      <main className="mx-auto max-w-5xl px-6 py-8 md:px-10 md:py-12">
-        <section className="mb-6">
-          <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">My scripts</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-300">
+    <AppShell>
+      <div className="mx-auto max-w-4xl space-y-6">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight md:text-2xl">My scripts</h1>
+          <p className="mt-1 text-sm text-slate-400">
             Browse scripts you&apos;ve generated before and download them as text files.
           </p>
-        </section>
+        </div>
 
-        {loading && <p className="text-sm text-slate-300">Loading scripts...</p>}
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-slate-400">
+            <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-slate-600 border-t-slate-300" />
+            Loading scripts…
+          </div>
+        )}
+
         {error && !loading && (
-          <p className="text-sm text-red-400" role="alert">
+          <div className="rounded-lg border border-red-500/20 bg-red-500/5 px-4 py-2.5 text-xs text-red-300" role="alert">
             {error}
-          </p>
+          </div>
         )}
 
         {!loading && !error && scripts.length === 0 && (
-          <p className="text-sm text-slate-400">
-            No scripts saved yet. Generate one from the dashboard and it will appear here.
-          </p>
+          <div className="rounded-xl border border-slate-800/70 bg-slate-900/40 px-6 py-10 text-center">
+            <p className="text-sm text-slate-500">
+              No scripts saved yet. Generate one from the
+              <a href="/dashboard" className="ml-1 font-medium text-emerald-400 hover:text-emerald-300">
+                dashboard
+              </a>
+              .
+            </p>
+          </div>
         )}
 
         {!loading && scripts.length > 0 && (
-          <div className="mt-4 space-y-3">
-            {scripts.map((script) => (
-              <div
-                key={script.id}
-                className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-xs text-slate-100 md:flex-row md:items-center md:justify-between"
-              >
-                <div className="space-y-1">
-                  <div className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                    {new Date(script.createdAt).toLocaleString()}
+          <div className="rounded-xl border border-slate-800/70 bg-slate-900/40">
+            <div className="border-b border-slate-800/50 px-6 py-4">
+              <h2 className="text-sm font-semibold text-slate-200">
+                {scripts.length} script{scripts.length !== 1 && "s"}
+              </h2>
+            </div>
+            <div className="divide-y divide-slate-800/40">
+              {scripts.map((script) => (
+                <div
+                  key={script.id}
+                  className="group px-6 py-4"
+                >
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0 space-y-0.5">
+                      <p className="text-sm font-medium text-slate-100">
+                        {script.idea}
+                      </p>
+                      <div className="flex items-center gap-2 text-[0.7rem] text-slate-500">
+                        <span>{script.amount} scenes</span>
+                        <span className="text-slate-700">·</span>
+                        <span>{new Date(script.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadTextFile(
+                          `script-${script.id}.txt`,
+                          script.content
+                        )
+                      }
+                      className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-1.5 text-[0.7rem] font-medium text-slate-200 transition hover:bg-slate-700"
+                    >
+                      Download .txt
+                    </button>
                   </div>
-                  <div className="text-sm font-medium text-slate-50">
-                    {script.idea}
-                  </div>
-                  <div className="text-[0.7rem] text-slate-400">
-                    {script.amount} sentences
-                  </div>
-                </div>
-                <div className="flex flex-col items-start gap-2 md:items-end">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      downloadTextFile(
-                        `script-${script.id}.txt`,
-                        script.content
-                      )
-                    }
-                    className="rounded-full bg-emerald-400 px-3 py-1 text-[0.7rem] font-medium text-slate-950 shadow-sm hover:bg-emerald-300"
-                  >
-                    Download script (.txt)
-                  </button>
-                  <details className="w-full text-[0.7rem] text-slate-300">
-                    <summary className="cursor-pointer select-none text-slate-400 hover:text-slate-200">
+                  <details className="mt-3 text-[0.7rem] text-slate-400">
+                    <summary className="cursor-pointer select-none hover:text-slate-200">
                       Preview
                     </summary>
-                    <pre className="mt-1 whitespace-pre-wrap text-[0.7rem] text-slate-100">
+                    <pre className="mt-2 max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg border border-slate-800/50 bg-slate-950/50 p-3 text-[0.7rem] leading-relaxed text-slate-300">
                       {script.content}
                     </pre>
                   </details>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }
