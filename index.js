@@ -7,9 +7,12 @@ for (let i = 1; i <= n; i++) {
       process.stdout.write("* ");
     } else {
       process.stdout.write("  ");
+
     }
   }
   console.log();
 }
 
+
+console.log("Hello world");
 
