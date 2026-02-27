@@ -58,3 +58,5 @@ Then open [http://localhost:3000](http://localhost:3000) in your browser. The ma
   - Returns the generated script text to the client
 
 See `docs/backend-endpoints.md` for detailed backend API documentation.
+
+This is additional commit not related 
